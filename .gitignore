@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.save
+boss.db
+boss.db-shm
+boss.db-wal
+*.save
+.DS_Store
+data/
