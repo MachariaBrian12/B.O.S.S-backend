@@ -74,3 +74,86 @@ const resetPassword = async (req, res) => {
 };
 
 module.exports = { register, login, logout, me, resetPassword };
+
+const updateProfile = async (req, res) => {
+  try {
+    const { name, business, currentPassword, newPassword } = req.body;
+    if (!name || !business)
+      return res.status(400).json({ error: "Name and business are required" });
+
+    const { rows } = await require("../db/database").pool.query(
+      "SELECT * FROM users WHERE id = $1", [req.user.id]
+    );
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    if (newPassword) {
+      if (!currentPassword)
+        return res.status(400).json({ error: "Current password required to set new password" });
+      const bcrypt = require("bcryptjs");
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) return res.status(400).json({ error: "Current password is incorrect" });
+      if (newPassword.length < 6)
+        return res.status(400).json({ error: "New password must be at least 6 characters" });
+      const hashed = await bcrypt.hash(newPassword, 10);
+      await require("../db/database").pool.query(
+        "UPDATE users SET name=$1, business=$2, password=$3 WHERE id=$4",
+        [name, business, hashed, req.user.id]
+      );
+    } else {
+      await require("../db/database").pool.query(
+        "UPDATE users SET name=$1, business=$2 WHERE id=$3",
+        [name, business, req.user.id]
+      );
+    }
+
+    const { rows: updated } = await require("../db/database").pool.query(
+      "SELECT id, name, email, business, created_at FROM users WHERE id=$1", [req.user.id]
+    );
+    res.json({ success:true, user:updated[0] });
+  } catch(err) { res.status(500).json({ error:err.message }); }
+};
+
+module.exports = { register, login, logout, me, resetPassword, updateProfile };
+EOFcd ~/B.O.S.S/backend && cat >> src/controllers/auth.controller.js << 'EOF'
+
+const updateProfile = async (req, res) => {
+  try {
+    const { name, business, currentPassword, newPassword } = req.body;
+    if (!name || !business)
+      return res.status(400).json({ error: "Name and business are required" });
+
+    const { rows } = await require("../db/database").pool.query(
+      "SELECT * FROM users WHERE id = $1", [req.user.id]
+    );
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    if (newPassword) {
+      if (!currentPassword)
+        return res.status(400).json({ error: "Current password required to set new password" });
+      const bcrypt = require("bcryptjs");
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) return res.status(400).json({ error: "Current password is incorrect" });
+      if (newPassword.length < 6)
+        return res.status(400).json({ error: "New password must be at least 6 characters" });
+      const hashed = await bcrypt.hash(newPassword, 10);
+      await require("../db/database").pool.query(
+        "UPDATE users SET name=$1, business=$2, password=$3 WHERE id=$4",
+        [name, business, hashed, req.user.id]
+      );
+    } else {
+      await require("../db/database").pool.query(
+        "UPDATE users SET name=$1, business=$2 WHERE id=$3",
+        [name, business, req.user.id]
+      );
+    }
+
+    const { rows: updated } = await require("../db/database").pool.query(
+      "SELECT id, name, email, business, created_at FROM users WHERE id=$1", [req.user.id]
+    );
+    res.json({ success:true, user:updated[0] });
+  } catch(err) { res.status(500).json({ error:err.message }); }
+};
+
+module.exports = { register, login, logout, me, resetPassword, updateProfile };
