@@ -7,3 +7,7 @@ boss.db-wal
 *.save
 .DS_Store
 data/
+
+/src/generated/prisma
+
+prisma/*.db
