@@ -1,51 +1,126 @@
-export type AIMessage = {
+import OpenAI from 'openai';
+import { prisma } from '../lib/prisma';
+import 'dotenv/config';
+
+/**
+ * =========================
+ * OPENAI CLIENT
+ * =========================
+ */
+const client = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+/**
+ * =========================
+ * CHAT MESSAGE TYPE
+ * =========================
+ */
+type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
 };
 
-export type AIContext = {
-  userId?: string;
-  businessMode?: boolean;
-};
-
-export async function guruAI(messages: AIMessage[], context: AIContext = {}) {
-  const lastMessage = messages[messages.length - 1]?.content || '';
-
-  console.log('🧠 Guru AI received:', lastMessage);
+/**
+ * =========================
+ * GURU AI MEMORY ENGINE
+ * =========================
+ */
+export async function guruAI(
+  messages: ChatMessage[],
+  context: { userId: string },
+) {
+  const { userId } = context;
 
   /**
-   * =========================
-   * SIMPLE INTELLIGENCE LAYER (PHASE 1)
-   * =========================
+   * GET LAST USER MESSAGE
    */
+  const lastMessage = messages[messages.length - 1];
 
-  // 1. Greetings
-  if (/hello|hi|hey/i.test(lastMessage)) {
-    return {
-      reply: 'Hello. Guru AI is active. How can I assist your system today?',
-      type: 'text',
-    };
-  }
+  /**
+   * ENSURE USER EXISTS
+   */
+  await prisma.user.upsert({
+    where: {
+      email: `${userId}@boss.ai`,
+    },
 
-  // 2. System status
-  if (/status|system/i.test(lastMessage)) {
-    return {
-      reply: 'B.O.S.S system is running. AI layer active. Payments disabled.',
-      type: 'system',
-    };
-  }
+    update: {},
 
-  // 3. Basic intent: payment request
-  if (/pay|payment|mpesa/i.test(lastMessage)) {
-    return {
-      reply: 'Payments module is currently disabled. It will be enabled later.',
-      type: 'warning',
-    };
-  }
+    create: {
+      email: `${userId}@boss.ai`,
+      password: 'ai-managed-user',
+      name: userId,
+      role: 'user',
+    },
+  });
+  /**
+   * SAVE USER MESSAGE
+   */
+  await prisma.message.create({
+    data: {
+      role: lastMessage.role,
+      content: lastMessage.content,
+      userId,
+    },
+  });
 
-  // 4. Default AI fallback
+  /**
+   * LOAD PREVIOUS MEMORY
+   */
+  const history = await prisma.message.findMany({
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+    take: 20,
+  });
+
+  /**
+   * AI COMPLETION
+   */
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o-mini',
+
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are Guru AI inside the B.O.S.S platform. You are futuristic, intelligent, concise, and highly capable.',
+      },
+
+      ...history.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+    ],
+  });
+
+  /**
+   * AI RESPONSE
+   */
+  const reply =
+    response.choices[0]?.message?.content || 'I could not generate a response.';
+
+  /**
+   * SAVE AI RESPONSE
+   */
+  await prisma.message.create({
+    data: {
+      role: 'assistant',
+      content: reply,
+      userId,
+    },
+  });
+
+  /**
+   * RETURN RESPONSE
+   */
   return {
-    reply: `Guru AI received: "${lastMessage}". AI reasoning layer is not yet connected to LLM, but routing is active.`,
-    type: 'text',
+    reply,
+    memory: true,
+    historyCount: history.length,
   };
 }

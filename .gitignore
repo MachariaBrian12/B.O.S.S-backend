@@ -1,13 +1,50 @@
+# =========================
+# Dependencies
+# =========================
 node_modules/
+
+# =========================
+# Environment files
+# =========================
 .env
-.env.save
+.env.*
+!.env.example
+
+# =========================
+# Build output (IMPORTANT)
+# =========================
+dist/
+build/
+
+# =========================
+# Database files (SQLite / local dev)
+# =========================
 boss.db
 boss.db-shm
 boss.db-wal
-*.save
+*.db
+*.sqlite
+
+# =========================
+# Prisma generated client
+# =========================
+/src/generated/prisma
+prisma/generated/
+
+# =========================
+# Logs / system files
+# =========================
+*.log
 .DS_Store
+
+# =========================
+# Temporary files
+# =========================
+*.save
 data/
 
-/src/generated/prisma
-
-prisma/*.db
+# =========================
+# Editor
+# =========================
+.vscode/
+.idea/

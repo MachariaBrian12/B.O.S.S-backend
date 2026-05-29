@@ -1,22 +1,60 @@
 import express from 'express';
-import { guruAI } from '../ai/guru.ai';
+import OpenAI from 'openai';
 
 const router = express.Router();
 
+/**
+ * =========================
+ * SAFE CLIENT FACTORY
+ * =========================
+ */
+function createClient() {
+  const key = process.env.OPENAI_API_KEY;
+
+  if (!key) {
+    throw new Error('OPENAI_API_KEY is missing in .env');
+  }
+
+  return new OpenAI({
+    apiKey: key,
+  });
+}
+
+/**
+ * =========================
+ * AI CHAT ROUTE
+ * =========================
+ */
 router.post('/chat', async (req, res) => {
   try {
     const { messages } = req.body;
 
-    const response = await guruAI(messages);
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({
+        success: false,
+        message: 'messages array required',
+      });
+    }
 
-    res.json({
-      success: true,
-      data: response,
+    const client = createClient();
+
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
     });
-  } catch (err) {
-    res.status(500).json({
+
+    const reply = completion.choices?.[0]?.message?.content;
+
+    return res.json({
+      success: true,
+      data: { reply },
+    });
+  } catch (err: any) {
+    console.error('AI ERROR:', err?.message);
+
+    return res.status(500).json({
       success: false,
-      error: 'AI engine failed',
+      message: err?.message || 'AI request failed',
     });
   }
 });
